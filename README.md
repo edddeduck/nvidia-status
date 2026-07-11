@@ -12,6 +12,8 @@ tool: Prometheus, a JSON API, MQTT with Home Assistant auto‑discovery, and nat
 
 ---
 
+![Nvidia Status dashboard](screenshot.png)
+
 ## Why?
 
 `nvidia-smi` cannot report **memory‑junction temperature** on consumer GeForce cards — yet
