@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Nvidia-Status</Name>
+  <Repository>edddeduck/nvidia-status:latest</Repository>
+  <Registry>https://hub.docker.com/r/edddeduck/nvidia-status</Registry>
+  <Branch>
+    <Tag>latest</Tag>
+    <TagDescription>Latest stable release</TagDescription>
+  </Branch>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/edddeduck/nvidia-status/issues</Support>
+  <Project>https://github.com/edddeduck/nvidia-status</Project>
+  <Overview>Comprehensive NVIDIA GPU dashboard and exporter for Unraid/Linux — including the GDDR6/GDDR6X VRAM-junction and hotspot temperatures that nvidia-smi HIDES on consumer RTX 30/40 cards (read straight off the GPU's PCIe BAR0).&#13;&#13;Provides a live web dashboard, a Prometheus /metrics endpoint, a JSON API, MQTT publishing with Home Assistant auto-discovery, and native InfluxDB (v1/v2) push for Grafana. Reports per-GPU temps + thresholds, clocks, power (with limits), utilisation, VRAM, PCIe gen/width + live upload/download bandwidth, fan, throttle reasons, per-process VRAM/encode/decode mapped to the owning DOCKER CONTAINER, and NVENC encode sessions with codec + resolution. Optional, gated power-limit control (per GPU, with a latch that re-applies on restart).&#13;&#13;Multi-GPU aware. Configure everything from the built-in Settings page or via the variables below. Requires the Unraid Nvidia-Driver plugin.&#13;&#13;SECURITY: reads GPU BAR0 via SYS_RAWIO + /dev/mem (needed for the hidden junction/VRAM temps). Per-process container names need --pid=host + --cgroupns=host + the read-only docker containers mount (all pre-set below). Power-limit control additionally requires Privileged=on.</Overview>
+  <Category>Tools: Status: HomeAutomation:</Category>
+  <WebUI>http://[IP]:[PORT:9835]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/edddeduck/nvidia-status/main/nvidia-status.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/edddeduck/nvidia-status/main/icon.png</Icon>
+  <ExtraParams>--runtime=nvidia --cap-add SYS_RAWIO --device /dev/mem --pid=host --cgroupns=host</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled>0</DateInstalled>
+  <DonateText/>
+  <DonateLink/>
+  <Requires>Requires the Unraid **Nvidia-Driver** plugin (Community Applications).</Requires>
+  <Config Name="WebUI / API Port" Target="9835" Default="9835" Mode="tcp" Description="Dashboard, /metrics, /json, /settings, /help" Type="Port" Display="always" Required="true" Mask="false">9835</Config>
+  <Config Name="Config (appdata)" Target="/config" Default="/mnt/user/appdata/nvidia-status" Mode="rw" Description="Persists settings.json + the power-limit latch" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/nvidia-status</Config>
+  <Config Name="Container names (ro)" Target="/hostcontainers" Default="/var/lib/docker/containers" Mode="ro" Description="Read-only mount so GPU processes can be mapped to container names" Type="Path" Display="advanced" Required="false" Mask="false">/var/lib/docker/containers</Config>
+  <Config Name="GPUs" Target="NVIDIA_VISIBLE_DEVICES" Default="all" Mode="" Description="Which GPUs to expose (all, or a UUID/index)" Type="Variable" Display="always" Required="true" Mask="false">all</Config>
+  <Config Name="Driver capabilities" Target="NVIDIA_DRIVER_CAPABILITIES" Default="all" Mode="" Description="Leave as all (needs compute+utility+video)" Type="Variable" Display="advanced" Required="true" Mask="false">all</Config>
+  <Config Name="Mode" Target="MODE" Default="prometheus" Mode="" Description="prometheus = web/HTTP server (normal). json = print JSON lines to the log instead." Type="Variable" Display="advanced" Required="true" Mask="false">prometheus</Config>
+  <Config Name="Node name" Target="NODE_NAME" Default="" Mode="" Description="Identifier used in MQTT topics, InfluxDB tags and the HA device name. Defaults to the hostname." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Poll interval (s)" Target="INTERVAL" Default="5" Mode="" Description="How often stats are refreshed" Type="Variable" Display="advanced" Required="false" Mask="false">5</Config>
+  <Config Name="Enable dashboard" Target="ENABLE_DASHBOARD" Default="1" Mode="" Description="Serve the web dashboard at / (1=on, 0=off)" Type="Variable" Display="advanced" Required="false" Mask="false">1</Config>
+  <Config Name="Enable Prometheus" Target="ENABLE_METRICS" Default="1" Mode="" Description="Serve Prometheus at /metrics (1=on, 0=off)" Type="Variable" Display="advanced" Required="false" Mask="false">1</Config>
+  <Config Name="Enable JSON API" Target="ENABLE_JSON" Default="1" Mode="" Description="Serve the JSON snapshot at /json (1=on, 0=off)" Type="Variable" Display="advanced" Required="false" Mask="false">1</Config>
+  <Config Name="Enable MQTT" Target="ENABLE_MQTT" Default="1" Mode="" Description="Publish to MQTT if a broker host is set below (1=on, 0=off)" Type="Variable" Display="advanced" Required="false" Mask="false">1</Config>
+  <Config Name="Enable InfluxDB" Target="ENABLE_INFLUX" Default="1" Mode="" Description="Write to InfluxDB if a URL is set below (1=on, 0=off)" Type="Variable" Display="advanced" Required="false" Mask="false">1</Config>
+  <Config Name="MQTT broker host" Target="MQTT_HOST" Default="" Mode="" Description="MQTT broker IP/host. Blank = MQTT off." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="MQTT port" Target="MQTT_PORT" Default="1883" Mode="" Description="MQTT broker port" Type="Variable" Display="advanced" Required="false" Mask="false">1883</Config>
+  <Config Name="MQTT username" Target="MQTT_USER" Default="" Mode="" Description="MQTT username (if the broker needs auth)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="MQTT password" Target="MQTT_PASS" Default="" Mode="" Description="MQTT password" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="HA discovery prefix" Target="MQTT_DISCOVERY_PREFIX" Default="homeassistant" Mode="" Description="Home Assistant MQTT discovery prefix" Type="Variable" Display="advanced" Required="false" Mask="false">homeassistant</Config>
+  <Config Name="InfluxDB URL" Target="INFLUX_URL" Default="" Mode="" Description="e.g. http://host:8086 . Blank = InfluxDB off." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="InfluxDB database (v1)" Target="INFLUX_DB" Default="" Mode="" Description="v1 database name" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="InfluxDB user (v1)" Target="INFLUX_USER" Default="" Mode="" Description="v1 username" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="InfluxDB password (v1)" Target="INFLUX_PASS" Default="" Mode="" Description="v1 password" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="InfluxDB write interval (s)" Target="INFLUX_INTERVAL" Default="10" Mode="" Description="How often to write to InfluxDB" Type="Variable" Display="advanced" Required="false" Mask="false">10</Config>
+  <Config Name="InfluxDB token (v2)" Target="INFLUX_TOKEN" Default="" Mode="" Description="v2 API token (presence selects the v2 API)" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="InfluxDB org (v2)" Target="INFLUX_ORG" Default="" Mode="" Description="v2 organisation" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="InfluxDB bucket (v2)" Target="INFLUX_BUCKET" Default="" Mode="" Description="v2 bucket" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Enable power-limit control" Target="ENABLE_POWER_LIMIT" Default="0" Mode="" Description="Allow setting the GPU power limit from the Settings page. Also requires Privileged = ON (advanced view). Default 0 = read-only." Type="Variable" Display="always" Required="false" Mask="false">0</Config>
+  <Config Name="Power-limit min (clamp)" Target="PL_MIN" Default="" Mode="" Description="Optional lower clamp (watts). Blank = use the GPU's own minimum." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Power-limit max (clamp)" Target="PL_MAX" Default="" Mode="" Description="Optional upper clamp (watts). Blank = use the GPU's own maximum." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+</Container>

@@ -1,0 +1,14 @@
+# never commit runtime config / secrets
+config/
+*.env
+settings.json
+power_limit.latch
+*.latch
+
+# python
+__pycache__/
+*.pyc
+
+# os
+.DS_Store
+.github/workflows/
