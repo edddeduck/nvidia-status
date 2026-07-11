@@ -19,10 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-This project vendors `gputemps.c` from ThomasBaruzier/gddr6-core-junction-vram-temps,
-which is licensed under the Apache License 2.0 — see GPUTEMPS-LICENSE. That file
-retains its original license and copyright; the MIT license above covers the rest
-of this project.

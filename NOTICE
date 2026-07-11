@@ -1,0 +1,7 @@
+Nvidia Status
+Copyright (c) 2026 edddeduck — MIT License (see LICENSE)
+
+This product bundles gputemps.c from
+ThomasBaruzier/gddr6-core-junction-vram-temps, licensed under the
+Apache License 2.0 (see GPUTEMPS-LICENSE). That file retains its
+original license and copyright.
