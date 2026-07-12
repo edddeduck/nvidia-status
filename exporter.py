@@ -908,6 +908,7 @@ table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
 th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--edge)}
 th{color:var(--muted);font-weight:500}
 th.n,td.n{text-align:right;font-variant-numeric:tabular-nums}
+th.c,td.c{text-align:center;font-variant-numeric:tabular-nums}
 td.mono,th.mono{font-family:ui-monospace,monospace;font-size:11px;color:var(--muted)}
 .tag{background:var(--accent);color:#fff;padding:1px 7px;border-radius:5px;font-size:11px}
 .empty{color:var(--muted);padding:10px 0}
@@ -940,8 +941,8 @@ td.mono,th.mono{font-family:ui-monospace,monospace;font-size:11px;color:var(--mu
   <h2>Throttle counters</h2>
   <div class="sub">cumulative time the card was held below clocks, per reason · since driver load (resets on reboot)</div>
   <div class="scroll"><table id="throt"><thead><tr>
-    <th>GPU</th><th class="n">SW power cap</th><th class="n">SW thermal</th>
-    <th class="n">HW thermal</th><th class="n">HW power brake</th><th class="n">Sync boost</th>
+    <th class="c">GPU</th><th class="c">SW power cap</th><th class="c">SW thermal</th>
+    <th class="c">HW thermal</th><th class="c">HW power brake</th><th class="c">Sync boost</th>
   </tr></thead><tbody></tbody></table></div>
   <div class="sub" style="margin:10px 0 0"><b>SW power cap</b> counts all time the clocks sit below the max application clocks for power management — <b>including idle</b> — so it normally approaches the card's uptime and is <b>not</b> a stress signal. The <b>thermal</b> counters are the wear-relevant ones.</div>
 </div></div>
@@ -1033,10 +1034,10 @@ async function tick(){
     // throttle counters (µs -> human duration)
     const tc=document.querySelector('#throt tbody');
     tc.innerHTML=gs.length?gs.map(g=>{const c=(g.throttle||{}).counters_us||{};return '<tr>'+
-      '<td class="n">'+g.index+'</td>'+
-      '<td class="n">'+DUR(c.sw_power_cap)+'</td><td class="n">'+DUR(c.sw_thermal)+'</td>'+
-      '<td class="n">'+DUR(c.hw_thermal)+'</td><td class="n">'+DUR(c.hw_power_brake)+'</td>'+
-      '<td class="n">'+DUR(c.sync_boost)+'</td></tr>';}).join('')
+      '<td class="c">'+g.index+'</td>'+
+      '<td class="c">'+DUR(c.sw_power_cap)+'</td><td class="c">'+DUR(c.sw_thermal)+'</td>'+
+      '<td class="c">'+DUR(c.hw_thermal)+'</td><td class="c">'+DUR(c.hw_power_brake)+'</td>'+
+      '<td class="c">'+DUR(c.sync_boost)+'</td></tr>';}).join('')
       :'<tr><td colspan="6" class="empty">No GPU detected</td></tr>';
     // device info (static)
     const it=document.querySelector('#info tbody');
