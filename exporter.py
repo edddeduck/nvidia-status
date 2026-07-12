@@ -218,6 +218,131 @@ def thresholds():
     return _THRESHOLDS
 
 
+# PCI subsystem (add-in board) vendor IDs -> friendly AIB name. The low 16 bits
+# of a GPU's Sub System Id identify who built the physical card. Pre-populated
+# with the common ones; if a card shows a raw 0x**** code here instead of a
+# name, please report it at https://github.com/edddeduck/nvidia-status/issues
+# so we can add it.
+PCI_SUBVENDORS = {
+    0x10DE: "NVIDIA (Founders/reference)",
+    0x1043: "ASUS",
+    0x1458: "Gigabyte",
+    0x1462: "MSI",
+    0x3842: "EVGA",
+    0x19DA: "Zotac",
+    0x1569: "Palit",
+    0x10B0: "Gainward",
+    0x1DA2: "Sapphire",
+    0x196E: "PNY",
+    0x1682: "XFX",
+    0x148C: "PowerColor",
+    0x1B4C: "KFA2/Galax",
+    0x7377: "Colorful",
+    0x1ACC: "Point of View",
+    0x174B: "PC Partner",
+    0x2646: "Kingston",
+    0x1E83: "Yeston",
+    0x1DEE: "Biostar",
+    0x1EAE: "Emtek/Leadtek",
+    0x1462: "MSI",
+    0x0000: "Unknown/OEM",
+}
+
+
+def vendor_name(subsystem_id):
+    """Decode a Sub System Id (e.g. '0x87AF1043') to the add-in board vendor.
+    Returns the vendor name, or the raw 0x**** sub-vendor code if unknown."""
+    if not subsystem_id:
+        return None
+    try:
+        sub = int(str(subsystem_id).strip(), 16) & 0xFFFF
+    except (ValueError, TypeError):
+        return None
+    return PCI_SUBVENDORS.get(sub, f"0x{sub:04X}")
+
+
+def _smi_q_blocks():
+    """Parse `nvidia-smi -q` into one flat dict per GPU, plus the cumulative
+    'Clocks Event Reasons Counters' (µs) which share key names with the live
+    reasons section, so we track that sub-section by indent to disambiguate.
+    Returns {uuid: {"info": {...}, "counters": {reason: microseconds}}}."""
+    r = _run(["nvidia-smi", "-q"])
+    text = getattr(r, "stdout", "") or ""
+    # header-level Driver/CUDA versions apply to every GPU on the host
+    drv = cuda = None
+    for line in text.splitlines()[:8]:
+        if line.startswith("Driver Version"):
+            drv = line.partition(":")[2].strip() or None
+        elif line.startswith("CUDA Version"):
+            cuda = line.partition(":")[2].strip() or None
+
+    want = {
+        "Product Name": "name", "Product Brand": "brand",
+        "Product Architecture": "architecture", "Serial Number": "serial",
+        "GPU PDI": "pdi", "GPU Part Number": "part_number",
+        "VBIOS Version": "vbios", "Board ID": "board_id",
+        "GSP Firmware Version": "gsp_firmware", "Sub System Id": "subsystem_id",
+        "Device Id": "device_id", "Image Version": "inforom_img",
+        "OEM Object": "inforom_oem",
+    }
+    counter_keys = {
+        "SW Power Capping": "sw_power_cap", "SW Thermal Slowdown": "sw_thermal",
+        "HW Thermal Slowdown": "hw_thermal", "HW Power Braking": "hw_power_brake",
+        "Sync Boost": "sync_boost",
+    }
+    out, cur, uuid = {}, None, None
+    in_counters = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        # a new GPU block starts at "GPU 00000000:D8:00.0"
+        if line.startswith("GPU ") and stripped.startswith("GPU "):
+            cur, uuid, in_counters = {}, None, False
+            continue
+        if cur is None or ":" not in line:
+            # entering/leaving the counters sub-section (4-space section header)
+            if stripped == "Clocks Event Reasons Counters":
+                in_counters = True
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        k, _, v = line.partition(":")
+        k, v = k.strip(), v.strip()
+        # counter lines sit at indent 8 under the section; a shallower line ends it
+        if in_counters and indent <= 4:
+            in_counters = False
+        if in_counters and k in counter_keys:
+            try:
+                cur.setdefault("_counters", {})[counter_keys[k]] = int(v.split()[0])
+            except (ValueError, IndexError):
+                pass
+            continue
+        if k == "GPU UUID":
+            uuid = v
+            cur["uuid"] = v
+            cur["driver_version"] = drv
+            cur["cuda_version"] = cuda
+            out[v] = {"info": cur, "counters": cur.get("_counters", {})}
+        elif k in want and want[k] not in cur:
+            cur[want[k]] = None if v in ("N/A", "") else v
+    # decode vendor + counter linkage after each block is complete
+    for u, blk in out.items():
+        blk["counters"] = blk["info"].pop("_counters", {})
+        blk["info"]["vendor"] = vendor_name(blk["info"].get("subsystem_id"))
+    return out
+
+
+_DEVICE_INFO = None
+
+
+def device_info(blocks=None):
+    """Static identity + firmware per GPU UUID. Cached — never changes at runtime."""
+    global _DEVICE_INFO
+    if _DEVICE_INFO is not None:
+        return _DEVICE_INFO
+    b = blocks if blocks is not None else _smi_q_blocks()
+    _DEVICE_INFO = {u: blk["info"] for u, blk in b.items()}
+    return _DEVICE_INFO
+
+
 def bar0_temps(bdfs):
     """core/junction/vram per GPU index from the BAR0 reader."""
     out = {}
@@ -424,6 +549,8 @@ def collect():
     thr = thresholds()
     pcie_bw = pcie_throughput()
     fbc = fbc_stats()
+    blocks = _smi_q_blocks()          # static identity + cumulative throttle counters
+    dinfo = device_info(blocks)       # cached after first call
     q = "--query-gpu=" + ",".join(FIELDS)
     r = _run(["nvidia-smi", q, "--format=csv,noheader,nounits"])
     gpus = []
@@ -491,7 +618,12 @@ def collect():
                 "hw_power_brake": _active(d["clocks_event_reasons.hw_power_brake_slowdown"]),
                 "sync_boost": _active(d["clocks_event_reasons.sync_boost"]),
                 "idle": _active(d["clocks_event_reasons.gpu_idle"]),
+                # cumulative throttle time in µs since driver load (not lifetime-
+                # persistent; resets on reboot/driver reload). {reason: microseconds}
+                "counters_us": blocks.get(d["uuid"], {}).get("counters", {}),
             },
+            # static identity + firmware (survives power cycles). Never changes.
+            "info": dinfo.get(d["uuid"], {}),
             "encode": {  # NVENC
                 "sessions": _num(d["encoder.stats.sessionCount"]),
                 "avg_fps": _num(d["encoder.stats.averageFps"]),
@@ -562,6 +694,21 @@ def prom_metrics():
     for key in ("sw_power_cap", "hw_thermal", "sw_thermal", "hw_power_brake", "sync_boost", "idle"):
         m(f"nvgpu_throttle_{key}", f"throttle reason {key} active (0/1)", "gauge",
           [(lbl(g), g["throttle"][key]) for g in gs])
+    # cumulative throttle time per reason (µs since driver load; resets on reboot)
+    for key in ("sw_power_cap", "sw_thermal", "hw_thermal", "hw_power_brake", "sync_boost"):
+        m(f"nvgpu_throttle_{key}_microseconds", f"cumulative {key} throttle time (us since driver load)", "counter",
+          [(lbl(g), g["throttle"].get("counters_us", {}).get(key)) for g in gs])
+    # static identity + firmware as a labelled info gauge (Prometheus idiom: value 1)
+    m("nvgpu_info", "static GPU identity + firmware (value always 1)", "gauge",
+      [(f'{lbl(g)},'
+        f'vendor="{(g["info"].get("vendor") or "-")}",'
+        f'architecture="{(g["info"].get("architecture") or "-")}",'
+        f'vbios="{(g["info"].get("vbios") or "-")}",'
+        f'inforom="{(g["info"].get("inforom_img") or "-")}",'
+        f'gsp_firmware="{(g["info"].get("gsp_firmware") or "-")}",'
+        f'driver="{(g["info"].get("driver_version") or "-")}",'
+        f'part_number="{(g["info"].get("part_number") or "-")}",'
+        f'serial="{(g["info"].get("serial") or "-")}"', 1) for g in gs])
 
     # encode/decode
     m("nvgpu_encode_sessions", "active NVENC sessions", "gauge",
@@ -756,9 +903,11 @@ header .meta{margin-left:auto;color:var(--muted);font-size:12px}
 table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
 th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--edge)}
 th{color:var(--muted);font-weight:500}
-td.n{text-align:right;font-variant-numeric:tabular-nums}
+th.n,td.n{text-align:right;font-variant-numeric:tabular-nums}
+td.mono,th.mono{font-family:ui-monospace,monospace;font-size:11px;color:var(--muted)}
 .tag{background:var(--accent);color:#fff;padding:1px 7px;border-radius:5px;font-size:11px}
 .empty{color:var(--muted);padding:10px 0}
+.scroll{overflow-x:auto}
 </style></head>
 <body>
 <header><span class="dot"></span><h1>Nvidia Status</h1>
@@ -774,8 +923,29 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
     <th class="n">VRAM MB</th><th class="n">Compute %</th><th class="n">Encode %</th><th class="n">Decode %</th>
   </tr></thead><tbody></tbody></table>
 </div></div>
+<div class="wrap"><div class="card" style="grid-column:1/-1">
+  <h2>Device info</h2>
+  <div class="sub">static identity &amp; firmware — survives power cycles</div>
+  <div class="scroll"><table id="info"><thead><tr>
+    <th>GPU</th><th>Model</th><th>Vendor</th><th>Architecture</th><th>VBIOS</th>
+    <th>InfoROM</th><th>GSP fw</th><th>Driver</th><th>Part no.</th><th>Serial</th><th class="mono">UUID</th>
+  </tr></thead><tbody></tbody></table></div>
+</div></div>
+<div class="wrap"><div class="card" style="grid-column:1/-1">
+  <h2>Throttle counters</h2>
+  <div class="sub">cumulative time the card was held below clocks, per reason · since driver load (resets on reboot)</div>
+  <div class="scroll"><table id="throt"><thead><tr>
+    <th>GPU</th><th class="n">SW power cap</th><th class="n">SW thermal</th>
+    <th class="n">HW thermal</th><th class="n">HW power brake</th><th class="n">Sync boost</th>
+  </tr></thead><tbody></tbody></table></div>
+</div></div>
 <script>
 const F=(v,d=0)=>v==null?"—":Number(v).toFixed(d);
+// microseconds -> compact human duration (e.g. "9h 3m", "12s", "0")
+function DUR(us){if(us==null)return"—";let s=us/1e6;if(s<1)return s<=0?"0":s.toFixed(1)+"s";
+  const d=Math.floor(s/86400);s-=d*86400;const h=Math.floor(s/3600);s-=h*3600;
+  const m=Math.floor(s/60);const sec=Math.floor(s-m*60);
+  if(d)return d+"d "+h+"h";if(h)return h+"h "+m+"m";if(m)return m+"m "+sec+"s";return sec+"s";}
 function col(v,warn,hot,crit){if(v==null)return"var(--muted)";
   if(v>=crit)return"var(--red)";if(v>=hot)return"var(--orange)";
   if(v>=warn)return"var(--amber)";return"var(--green)";}
@@ -853,6 +1023,24 @@ async function tick(){
       '<td class="n">'+F(p.used_mb)+'</td><td class="n">'+F(p.sm)+'</td>'+
       '<td class="n">'+F(p.enc)+'</td><td class="n">'+F(p.dec)+'</td></tr>').join('')
       :'<tr><td colspan="8" class="empty">No processes currently using the GPU</td></tr>';
+    const gs=d.gpus||[];
+    // throttle counters (µs -> human duration)
+    const tc=document.querySelector('#throt tbody');
+    tc.innerHTML=gs.length?gs.map(g=>{const c=(g.throttle||{}).counters_us||{};return '<tr>'+
+      '<td class="n">'+g.index+'</td>'+
+      '<td class="n">'+DUR(c.sw_power_cap)+'</td><td class="n">'+DUR(c.sw_thermal)+'</td>'+
+      '<td class="n">'+DUR(c.hw_thermal)+'</td><td class="n">'+DUR(c.hw_power_brake)+'</td>'+
+      '<td class="n">'+DUR(c.sync_boost)+'</td></tr>';}).join('')
+      :'<tr><td colspan="6" class="empty">No GPU detected</td></tr>';
+    // device info (static)
+    const it=document.querySelector('#info tbody');
+    it.innerHTML=gs.length?gs.map(g=>{const i=g.info||{};const D=v=>v||'—';return '<tr>'+
+      '<td class="n">'+g.index+'</td>'+
+      '<td>'+D(i.name)+'</td><td>'+D(i.vendor)+'</td><td>'+D(i.architecture)+'</td>'+
+      '<td>'+D(i.vbios)+'</td><td>'+D(i.inforom_img)+'</td><td>'+D(i.gsp_firmware)+'</td>'+
+      '<td>'+D(i.driver_version)+'</td><td>'+D(i.part_number)+'</td><td>'+D(i.serial)+'</td>'+
+      '<td class="mono">'+D(i.uuid)+'</td></tr>';}).join('')
+      :'<tr><td colspan="11" class="empty">No GPU detected</td></tr>';
     document.getElementById('meta').textContent='updated '+new Date(d.timestamp).toLocaleTimeString()+' · refresh 2s';
   }catch(e){document.getElementById('meta').textContent='fetch error: '+e;}
 }
