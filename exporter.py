@@ -284,6 +284,10 @@ def _smi_q_blocks():
         "GSP Firmware Version": "gsp_firmware", "Sub System Id": "subsystem_id",
         "Device Id": "device_id", "Image Version": "inforom_img",
         "OEM Object": "inforom_oem",
+        # persistent memory-health flags (present even on non-ECC GeForce)
+        "Channel Repair Pending": "channel_repair_pending",
+        "TPC Repair Pending": "tpc_repair_pending",
+        "Remapped Rows": "remapped_rows",
     }
     counter_keys = {
         "SW Power Capping": "sw_power_cap", "SW Thermal Slowdown": "sw_thermal",
@@ -930,6 +934,7 @@ td.mono,th.mono{font-family:ui-monospace,monospace;font-size:11px;color:var(--mu
     <th>GPU</th><th>Model</th><th>Vendor</th><th>Architecture</th><th>VBIOS</th>
     <th>InfoROM</th><th>GSP fw</th><th>Driver</th><th>Part no.</th><th>Serial</th><th class="mono">UUID</th>
   </tr></thead><tbody></tbody></table></div>
+  <div class="sub" id="health" style="margin:10px 0 0"></div>
 </div></div>
 <div class="wrap"><div class="card" style="grid-column:1/-1">
   <h2>Throttle counters</h2>
@@ -938,6 +943,7 @@ td.mono,th.mono{font-family:ui-monospace,monospace;font-size:11px;color:var(--mu
     <th>GPU</th><th class="n">SW power cap</th><th class="n">SW thermal</th>
     <th class="n">HW thermal</th><th class="n">HW power brake</th><th class="n">Sync boost</th>
   </tr></thead><tbody></tbody></table></div>
+  <div class="sub" style="margin:10px 0 0"><b>SW power cap</b> counts all time the clocks sit below the max application clocks for power management — <b>including idle</b> — so it normally approaches the card's uptime and is <b>not</b> a stress signal. The <b>thermal</b> counters are the wear-relevant ones.</div>
 </div></div>
 <script>
 const F=(v,d=0)=>v==null?"—":Number(v).toFixed(d);
@@ -1041,6 +1047,15 @@ async function tick(){
       '<td>'+D(i.driver_version)+'</td><td>'+D(i.part_number)+'</td><td>'+D(i.serial)+'</td>'+
       '<td class="mono">'+D(i.uuid)+'</td></tr>';}).join('')
       :'<tr><td colspan="11" class="empty">No GPU detected</td></tr>';
+    // memory-health flags below the info table (green ok / red flagged / muted N/A)
+    const flag=(label,v)=>{if(v==null||v==='N/A')return '<span style="color:var(--muted)">'+label+': N/A</span>';
+      const bad=/^(yes|[1-9])/i.test(String(v));
+      return '<span style="color:'+(bad?'var(--red)':'var(--green)')+'">'+label+': '+v+'</span>';};
+    document.getElementById('health').innerHTML=gs.length?
+      'Memory health &nbsp; '+gs.map(g=>{const i=g.info||{};return '<b>GPU '+g.index+'</b> · '+
+        flag('Channel repair pending',i.channel_repair_pending)+' &nbsp;·&nbsp; '+
+        flag('TPC repair pending',i.tpc_repair_pending)+' &nbsp;·&nbsp; '+
+        flag('Remapped rows',i.remapped_rows);}).join(' &nbsp;&nbsp; '):'';
     document.getElementById('meta').textContent='updated '+new Date(d.timestamp).toLocaleTimeString()+' · refresh 2s';
   }catch(e){document.getElementById('meta').textContent='fetch error: '+e;}
 }
