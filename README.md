@@ -1,12 +1,12 @@
 # Nvidia Status
 
-A comprehensive **NVIDIA GPU dashboard and exporter** for Unraid / Linux — including the
-**GDDR6 / GDDR6X VRAM‑junction and hotspot temperatures that `nvidia-smi` hides** on consumer
-RTX 30/40 cards (read straight off the GPU's PCIe BAR0).
+**NVIDIA GPU dashboard + exporter** — shows the GDDR6 / GDDR6X VRAM & junction
+temps that `nvidia-smi` hides on consumer RTX 30/40 cards (read straight off the
+GPU's PCIe BAR0), plus detailed stats including **per‑Docker‑container** GPU usage.
 
-One small container gives you a live web dashboard **and** feeds every popular monitoring
-tool: Prometheus, a JSON API, MQTT with Home Assistant auto‑discovery, and native InfluxDB
-(v1/v2) push for Grafana.
+Exports to **Prometheus, a JSON API, MQTT (with Home Assistant auto‑discovery) and
+InfluxDB (v1/v2)** out of the box — one small container for live viewing *and*
+long‑term analysis in Grafana.
 
 > Built for Unraid, works on any Linux host with the NVIDIA proprietary driver.
 
