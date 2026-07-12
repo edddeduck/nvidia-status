@@ -15,6 +15,19 @@
   <Project>https://github.com/edddeduck/nvidia-status</Project>
   <Overview>NVIDIA GPU dashboard + exporter — shows the GDDR6/GDDR6X VRAM &amp; junction temps that nvidia-smi hides on consumer RTX 30/40 cards, plus detailed stats including per-Docker-container resource usage. Exports to Prometheus, JSON, MQTT/Home Assistant and InfluxDB out of the box for long-term analysis.&#13;&#13;Reports (per GPU): core/junction/VRAM temps + thresholds, clocks, power + limits, utilisation, VRAM, fan, PCIe gen/width + live bandwidth, throttle reasons, per-process usage mapped to the owning Docker container, and NVENC sessions (codec + resolution). Optional per-GPU power-limit control. Multi-GPU aware. Configure from the built-in Settings page or the variables below.&#13;&#13;Requires the Unraid Nvidia-Driver plugin.&#13;&#13;SECURITY: reads GPU BAR0 via SYS_RAWIO + /dev/mem (needed for the hidden junction/VRAM temps). Per-process container mapping needs --pid=host + --cgroupns=host + the read-only docker containers mount (all pre-set below). Power-limit control additionally requires Privileged=on.</Overview>
   <Category>HomeAutomation: Tools:System Tools:Utilities</Category>
+  <Changes>
+### v1.0.2 (2026-07-12)
+- **Device info** panel: model, add-in-board vendor, VBIOS, InfoROM, GSP firmware, driver, part no. + memory-health flags (channel/TPC repair pending, remapped rows).
+- **Throttle counters** table: cumulative per-reason throttle time, with an idle caveat on SW power cap.
+- Fixed process-table column alignment.
+- Added JSON + Prometheus `nvgpu_info` / `nvgpu_throttle_*_microseconds`.
+
+### v1.0.1 (2026-07-11)
+- Fixed Unraid "version: not available" — disabled buildx provenance/SBOM attestations so `:latest` is a plain single-arch manifest.
+
+### v1.0.0 (2026-07-11)
+- Initial release: GDDR6/GDDR6X VRAM-junction + hotspot temps, live dashboard, Prometheus, JSON, MQTT/Home Assistant auto-discovery, InfluxDB (v1/v2) push, per-process to container mapping, NVENC sessions, and gated per-GPU power-limit control.
+  </Changes>
   <WebUI>http://[IP]:[PORT:9835]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/edddeduck/nvidia-status/main/templates/nvidia-status.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/edddeduck/nvidia-status/main/icon.png</Icon>
